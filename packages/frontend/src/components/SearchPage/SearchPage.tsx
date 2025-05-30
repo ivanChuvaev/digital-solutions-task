@@ -215,7 +215,7 @@ export const SearchPage = () => {
         setSyncStatus('pending')
         actionFetch(entries)
         entries = []
-      }, 3000)
+      }, 1000)
     }
   }, [actionFetch])
 

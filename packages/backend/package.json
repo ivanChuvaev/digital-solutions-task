@@ -1,0 +1,22 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Test task's backend for Digital solutions company",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+  },
+  "author": "Ivan Chuvaev",
+  "license": "ISC",
+  "dependencies": {
+    "@faker-js/faker": "^9.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": false,
+  "bracketSpacing": true,
+  "overrides": [
+    {
+      "files": "packages/backend/**",
+      "options": {
+        "tabWidth": 4
+      }
+    }
+  ]
+}

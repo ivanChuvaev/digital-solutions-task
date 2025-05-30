@@ -1,0 +1,30 @@
+.checkbox {
+  --checkbox-border-color: color-mix(in srgb, var(--primary-color), black 20%);
+  position: relative;
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 3px;
+  background: rgb(197, 197, 197);
+  box-sizing: border-box;
+  transition-property: background-color, border-color;
+  transition-duration: 0.1s;
+  transition-timing-function: ease-in-out;
+  border-color: var(--checkbox-border-color);
+  border-width: 0px;
+  border-style: solid;
+  cursor: pointer;
+}
+
+.checkbox:has(input:checked) {
+  background-color: var(--primary-color);
+  border-color: var(--checkbox-border-color);
+  border-width: 1px;
+}
+
+.checkbox input {
+  position: absolute;
+  inset: -1px;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}

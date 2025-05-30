@@ -1,0 +1,7 @@
+.item {
+  height: var(--height, var(--initial-height, 0px));
+}
+
+.item.item--visible {
+  height: unset;
+}

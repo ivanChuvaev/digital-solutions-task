@@ -1,15 +1,15 @@
-import { useEffect, useRef, type FC } from 'react'
+import { type FC, useEffect, useRef } from 'react'
 
 type IntersectionTriggerProps = {
-  onIntersect: () => void
-  className?: string
-  rootMargin?: string
-  threshold?: number
   mountDelay?: number
+  rootMargin?: string
+  className?: string
+  threshold?: number
+  onIntersect: () => void
 }
 
 export const IntersectionTrigger: FC<IntersectionTriggerProps> = (props) => {
-  const { onIntersect, className, rootMargin, threshold, mountDelay } = props
+  const { mountDelay, rootMargin, className, threshold, onIntersect } = props
   const ref = useRef<HTMLDivElement>(null)
 
   const handleIntersectRef = useRef(onIntersect)

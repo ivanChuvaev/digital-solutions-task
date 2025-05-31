@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { type FC } from 'react'
+import type { FC } from 'react'
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import { SearchPage } from './components/SearchPage'
 
 const queryClient = new QueryClient()

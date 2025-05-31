@@ -1,22 +1,21 @@
 export type Person = {
-  id: number
-  avatar: string
   first_name: string
   last_name: string
+  checked: boolean
+  avatar: string
   email: string
   phone: string
-  checked: boolean
+  id: number
 }
 
 export type MutationAction =
   | {
-      type: 'toggle'
       payload: [number, boolean]
+      type: 'toggle'
     }
   | {
-      type: 'swap'
       payload: [number, number]
+      type: 'swap'
     }
 
-  
 export type SyncStatus = 'error' | 'timeout' | 'pending' | 'synced'

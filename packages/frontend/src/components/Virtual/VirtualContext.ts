@@ -1,9 +1,10 @@
-import { createContext, type SetStateAction, type Dispatch } from 'react'
+import type { VirtualItemStateRefObject } from './VirtualItem'
+import { type RefObject, createContext } from 'react'
 
 export type VirtualContextType = {
   registerItem: (
     element: HTMLElement,
-    setVisible: Dispatch<SetStateAction<boolean>>,
+    stateRef: RefObject<VirtualItemStateRefObject>,
   ) => () => void
 }
 

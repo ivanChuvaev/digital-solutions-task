@@ -1,25 +1,24 @@
-import { useInfiniteQuery, useMutation } from '@tanstack/react-query'
+import type { MutationAction, Person } from '../../types'
 import {
+  type ReactNode,
   createRef,
   useEffect,
+  useState,
   useMemo,
   useRef,
-  useState,
-  type ReactNode,
 } from 'react'
-import type { MutationAction, Person } from '../../types'
-
-import styles from './SearchPage.module.css'
-import { IntersectionTrigger } from '../IntersectionTrigger'
-import { debounce } from '../../utils/debounce'
-import { Virtual } from '../Virtual'
 import {
-  PersonCardChunk,
   type PersonCardChunkStateRefObject,
+  PersonCardChunk,
 } from '../PersonCardChunk'
-import { useQueryParam } from '../../hooks/useQueryParam'
-import cn from 'classnames'
+import { useInfiniteQuery, useMutation } from '@tanstack/react-query'
+import { IntersectionTrigger } from '../IntersectionTrigger'
 import { translateSyncStatus } from './translateSyncStatus'
+import { useQueryParam } from '../../hooks/useQueryParam'
+import { debounce } from '../../utils/debounce'
+import styles from './SearchPage.module.css'
+import { Virtual } from '../Virtual'
+import cn from 'classnames'
 
 export const SearchPage = () => {
   const [search, setSearch] = useQueryParam('search')
@@ -58,11 +57,11 @@ export const SearchPage = () => {
     [setSearch],
   )
 
-  const { data, isLoading, error, hasNextPage, fetchNextPage } =
+  const { fetchNextPage, hasNextPage, isLoading, error, data } =
     useInfiniteQuery({
       queryKey: ['data', search, pageSize],
-      initialPageParam: 0,
       refetchOnWindowFocus: false,
+      initialPageParam: 0,
       queryFn: async ({ pageParam }) => {
         const url = new URL(`${import.meta.env.VITE_API_URL}/data`)
         if (search) {
@@ -81,22 +80,6 @@ export const SearchPage = () => {
     })
 
   const { mutate: actionFetch } = useMutation({
-    mutationFn: (entries: MutationAction[]) =>
-      fetch(`${import.meta.env.VITE_API_URL}/action`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(entries),
-      }).then((res) => {
-        if (res.status !== 200) {
-          throw new Error()
-        }
-        return res
-      }),
-    onSuccess: () => {
-      setSyncStatus('synced')
-    },
     onError: (_, actions) => {
       setSyncStatus('error')
       for (const action of actions.reverse()) {
@@ -152,6 +135,22 @@ export const SearchPage = () => {
         }
       }
     },
+    mutationFn: (entries: MutationAction[]) =>
+      fetch(`${import.meta.env.VITE_API_URL}/action`, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(entries),
+        method: 'POST',
+      }).then((res) => {
+        if (res.status !== 200) {
+          throw new Error()
+        }
+        return res
+      }),
+    onSuccess: () => {
+      setSyncStatus('synced')
+    },
   })
 
   const chunks = useMemo(() => {
@@ -166,8 +165,8 @@ export const SearchPage = () => {
     }
 
     return pages.map((page) => ({
-      chunk: page,
       stateRef: createRef<PersonCardChunkStateRefObject>(),
+      chunk: page,
     }))
   }, [data])
 
@@ -222,8 +221,8 @@ export const SearchPage = () => {
   const togglePersonAccumulativeFetch = useMemo(() => {
     return (id: number, value: boolean) => {
       actionAccumulativeFetch({
-        type: 'toggle',
         payload: [id, value],
+        type: 'toggle',
       })
     }
   }, [actionAccumulativeFetch])
@@ -231,8 +230,8 @@ export const SearchPage = () => {
   const swapPersonAccumulativeFetch = useMemo(() => {
     return (aId: number, bId: number) => {
       actionAccumulativeFetch({
-        type: 'swap',
         payload: [aId, bId],
+        type: 'swap',
       })
     }
   }, [actionAccumulativeFetch])
@@ -281,8 +280,8 @@ export const SearchPage = () => {
             {chunks.map((chunk, index) => (
               <Virtual.Item
                 key={chunk.chunk[0]?.id}
-                as="li"
                 initialHeight={500}
+                as="li"
               >
                 {index > 0 && (
                   <div className={styles['page-counter']}>Page {index + 1}</div>
@@ -304,8 +303,8 @@ export const SearchPage = () => {
             key={data?.pages.length}
             className={styles['page-load-trigger']}
             rootMargin="0px 0px 500px 0px"
-            onIntersect={fetchNextPageDebounced}
             mountDelay={200}
+            onIntersect={fetchNextPageDebounced}
           />
         )}
       </>
@@ -322,14 +321,14 @@ export const SearchPage = () => {
         <div className={cn(styles['search-container'], 'container')}>
           <input
             ref={searchInputRef}
-            type="search"
-            placeholder="Search"
-            onChange={(e) => setSearchDebounced(e.target.value)}
             className={styles['search-input']}
+            placeholder="Search"
+            type="search"
+            onChange={(e) => setSearchDebounced(e.target.value)}
           />
           <select
-            value={pageSize}
             id="search-page-size-select"
+            value={pageSize}
             onChange={(e) => setPageSizeStr(e.target.value)}
           >
             {pageSizeOptions.map((size) => (

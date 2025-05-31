@@ -1,5 +1,5 @@
 export {
   PersonCardChunk,
-  type PersonCardChunkStateRefObject,
   type PersonCardChunkProps,
+  type PersonCardChunkStateRefObject,
 } from './PersonCardChunk'

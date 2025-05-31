@@ -1,13 +1,13 @@
+import type { VirtualItemStateRefObject } from './VirtualItem'
 import {
+  type ReactNode,
+  type RefObject,
+  useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-  useLayoutEffect,
 } from 'react'
-import { VirtualContext, type VirtualContextType } from './VirtualContext'
+import { type VirtualContextType, VirtualContext } from './VirtualContext'
 
 type VirtualRootProps = {
   children?: ReactNode
@@ -16,47 +16,60 @@ type VirtualRootProps = {
 }
 
 export const VirtualRoot = (props: VirtualRootProps) => {
-  const { children, rootMargin, threshold } = props
+  const { rootMargin, threshold, children } = props
 
-  const observerRef = useRef<IntersectionObserver | null>(null)
+  const intersectionObserverRef = useRef<IntersectionObserver | null>(null)
+  const resizeObserverRef = useRef<ResizeObserver | null>(null)
 
-  const itemsRef = useRef<
-    Map<
-      Element,
-      { element: Element; setVisible: Dispatch<SetStateAction<boolean>> }
-    >
-  >(new Map())
+  const itemsRef = useRef<Map<Element, RefObject<VirtualItemStateRefObject>>>(
+    new Map(),
+  )
 
   const registerItem = useCallback(
-    (element: HTMLElement, setVisible: Dispatch<SetStateAction<boolean>>) => {
-      itemsRef.current.set(element, { element, setVisible })
-      observerRef.current?.observe(element)
+    (element: HTMLElement, stateRef: RefObject<VirtualItemStateRefObject>) => {
+      itemsRef.current.set(element, stateRef)
+      intersectionObserverRef.current?.observe(element)
+      resizeObserverRef.current?.observe(element)
 
       return () => {
         itemsRef.current.delete(element)
-        observerRef.current?.unobserve(element)
+        intersectionObserverRef.current?.unobserve(element)
+        resizeObserverRef.current?.unobserve(element)
       }
     },
     [],
   )
 
   useLayoutEffect(() => {
-    const handler = (entries: IntersectionObserverEntry[]) => {
+    const intersectionObserverHandler = (
+      entries: IntersectionObserverEntry[],
+    ) => {
       entries.forEach((entry) => {
         const { isIntersecting, target } = entry
-        const item = itemsRef.current.get(target)
-        if (!item) return
-        item.setVisible(isIntersecting)
+        itemsRef.current.get(target)?.current?.setVisible(isIntersecting)
       })
     }
 
-    observerRef.current = new IntersectionObserver(handler, {
-      rootMargin,
-      threshold,
-    })
+    const resizeObserverHandler = (entries: ResizeObserverEntry[]) => {
+      entries.forEach((entry) => {
+        const { target } = entry
+        itemsRef.current.get(target)?.current?.saveHeight()
+      })
+    }
+
+    intersectionObserverRef.current = new IntersectionObserver(
+      intersectionObserverHandler,
+      {
+        rootMargin,
+        threshold,
+      },
+    )
+
+    resizeObserverRef.current = new ResizeObserver(resizeObserverHandler)
 
     return () => {
-      observerRef.current?.disconnect()
+      intersectionObserverRef.current?.disconnect()
+      resizeObserverRef.current?.disconnect()
     }
   }, [rootMargin, threshold])
 

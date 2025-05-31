@@ -1,39 +1,39 @@
+import type { Person } from '../../types'
 import {
-  useState,
-  useImperativeHandle,
-  useEffect,
-  useCallback,
-  useRef,
   type Ref,
   type FC,
+  useImperativeHandle,
+  useCallback,
+  useEffect,
+  useState,
+  useRef,
 } from 'react'
-import type { Person } from '../../types'
-import { PersonCard } from '../PersonCard/PersonCard'
 import { dragStartHandler, dragOverHandler, dropHandler } from './handlers'
+import { PersonCard } from '../PersonCard/PersonCard'
 
 export type PersonCardChunkStateRefObject = {
   persons: Person[]
-  swap: (aId: number, bId: number) => void
   replace: (id: number, newPerson: Person) => void
   toggle: (id: number, value: boolean) => void
+  swap: (aId: number, bId: number) => void
 }
 
 export type PersonCardChunkProps = {
-  chunk: Person[]
   chunkIndex: number
-  className?: string
+  chunk: Person[]
   stateRef?: Ref<PersonCardChunkStateRefObject>
-  onToggle?: (id: number, value: boolean) => void
+  className?: string
   onDrop?: (
     aChunkIndex: number,
     aPersonId: number,
     bChunkIndex: number,
     bPersonId: number,
   ) => void
+  onToggle?: (id: number, value: boolean) => void
 }
 
 export const PersonCardChunk: FC<PersonCardChunkProps> = (props) => {
-  const { chunk, chunkIndex, stateRef, className, onToggle, onDrop } = props
+  const { chunkIndex, className, onToggle, stateRef, onDrop, chunk } = props
 
   const [persons, setPersons] = useState(chunk)
 
@@ -74,10 +74,10 @@ export const PersonCardChunk: FC<PersonCardChunkProps> = (props) => {
   useImperativeHandle(
     stateRef,
     () => ({
-      persons,
-      swap: swapPerson,
       replace: replacePerson,
       toggle: togglePerson,
+      swap: swapPerson,
+      persons,
     }),
     [persons, swapPerson, replacePerson, togglePerson],
   )
@@ -95,8 +95,8 @@ export const PersonCardChunk: FC<PersonCardChunkProps> = (props) => {
           onDragStart={(event) =>
             dragStartHandler(event, person.id, chunkIndex)
           }
-          onDragOver={dragOverHandler}
           onDrop={(event) => dropHandler(event, person.id, chunkIndex, onDrop)}
+          onDragOver={dragOverHandler}
         >
           <PersonCard person={person} onToggleCheckbox={togglePerson} />
         </li>

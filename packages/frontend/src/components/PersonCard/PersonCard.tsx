@@ -1,5 +1,5 @@
-import { type FC } from 'react'
 import type { Person } from '../../types'
+import type { FC } from 'react'
 import styles from './PersonCard.module.css'
 import { Checkbox } from '../Checkbox'
 
@@ -21,8 +21,8 @@ export const PersonCard: FC<PersonCardProps> = ({
       />
       <img
         className={styles['person-card-avatar']}
-        src={person.avatar}
         alt={person.first_name}
+        src={person.avatar}
       />
       <div className={styles['person-card-content']}>
         <b>

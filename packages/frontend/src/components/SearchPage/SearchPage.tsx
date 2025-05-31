@@ -63,7 +63,10 @@ export const SearchPage = () => {
       refetchOnWindowFocus: false,
       initialPageParam: 0,
       queryFn: async ({ pageParam }) => {
-        const url = new URL(`${import.meta.env.VITE_API_URL}/data`)
+        const url = new URL(
+          '/data',
+          import.meta.env.VITE_API_URL || window.origin,
+        )
         if (search) {
           url.searchParams.set('search', search)
         }
@@ -135,19 +138,23 @@ export const SearchPage = () => {
         }
       }
     },
-    mutationFn: (entries: MutationAction[]) =>
-      fetch(`${import.meta.env.VITE_API_URL}/action`, {
+    mutationFn: async (entries: MutationAction[]) => {
+      const url = new URL(
+        '/action',
+        import.meta.env.VITE_API_URL || window.origin,
+      )
+      const res = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(entries),
         method: 'POST',
-      }).then((res) => {
-        if (res.status !== 200) {
-          throw new Error()
-        }
-        return res
-      }),
+      })
+      if (res.status !== 200) {
+        throw new Error()
+      }
+      return res
+    },
     onSuccess: () => {
       setSyncStatus('synced')
     },

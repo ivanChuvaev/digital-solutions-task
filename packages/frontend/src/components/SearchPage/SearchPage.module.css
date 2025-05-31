@@ -13,13 +13,13 @@
 
 .search-container {
   display: flex;
-  gap: 16px;
+  align-items: center;
+  gap: 8px;
 }
 
 .sync-status {
   margin-left: auto;
   color: rgba(0, 0, 0, 0.521);
-  padding: 4px 8px;
   font-family: monospace;
 }
 

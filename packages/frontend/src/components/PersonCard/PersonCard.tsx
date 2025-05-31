@@ -2,18 +2,21 @@ import type { Person } from '../../types'
 import type { FC } from 'react'
 import styles from './PersonCard.module.css'
 import { Checkbox } from '../Checkbox'
+import cn from 'classnames'
 
 type PersonCardProps = {
   person: Person
+  className?: string
   onToggleCheckbox: (id: number, value: boolean) => void
 }
 
 export const PersonCard: FC<PersonCardProps> = ({
   person,
+  className,
   onToggleCheckbox,
 }) => {
   return (
-    <article className={styles['person-card']}>
+    <article className={cn(styles['person-card'], className)}>
       <Checkbox
         className={styles['person-card-checkbox']}
         checked={person.checked}

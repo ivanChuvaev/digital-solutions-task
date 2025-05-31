@@ -2,9 +2,16 @@ export const dragStartHandler = (
   event: React.DragEvent<HTMLLIElement>,
   personId: number,
   chunkIndex: number,
+  draggingClassName: string,
 ) => {
-  event.dataTransfer.setData('personId', personId.toString())
-  event.dataTransfer.setData('chunkIndex', chunkIndex.toString())
+  event.currentTarget.classList.add(draggingClassName)
+  event.dataTransfer.setData(
+    'text/plain',
+    JSON.stringify({
+      chunkIndex,
+      personId,
+    }),
+  )
   event.dataTransfer.effectAllowed = 'move'
 }
 
@@ -17,6 +24,7 @@ export const dropHandler = (
   event: React.DragEvent<HTMLLIElement>,
   personId: number,
   chunkIndex: number,
+  draggedOverClassName: string,
   callback?: (
     aChunkIndex: number,
     aPersonId: number,
@@ -25,15 +33,39 @@ export const dropHandler = (
   ) => void,
 ) => {
   event.preventDefault()
-  const transferredPersonId = parseInt(event.dataTransfer.getData('personId'))
-  const transferredChunkIndex = parseInt(
-    event.dataTransfer.getData('chunkIndex'),
-  )
+  event.currentTarget.classList.remove(draggedOverClassName)
+  const transferredData = JSON.parse(event.dataTransfer.getData('text/plain'))
+  const transferredPersonId = transferredData.personId
+  const transferredChunkIndex = transferredData.chunkIndex
   if (
     callback &&
     !Number.isNaN(transferredPersonId) &&
-    !Number.isNaN(transferredChunkIndex)
+    !Number.isNaN(transferredChunkIndex) &&
+    transferredPersonId !== personId
   ) {
     callback(transferredChunkIndex, transferredPersonId, chunkIndex, personId)
   }
+}
+
+export const dragEnterHandler = (
+  event: React.DragEvent<HTMLLIElement>,
+  draggedOverClassName: string,
+) => {
+  event.currentTarget.classList.add(draggedOverClassName)
+}
+
+export const dragLeaveHandler = (
+  event: React.DragEvent<HTMLLIElement>,
+  draggedOverClassName: string,
+) => {
+  if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+    event.currentTarget.classList.remove(draggedOverClassName)
+  }
+}
+
+export const dragEndHandler = (
+  event: React.DragEvent<HTMLLIElement>,
+  draggingClassName: string,
+) => {
+  event.currentTarget.classList.remove(draggingClassName)
 }

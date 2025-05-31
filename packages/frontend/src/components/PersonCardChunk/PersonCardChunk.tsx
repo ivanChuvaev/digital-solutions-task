@@ -1,5 +1,13 @@
 import type { Person } from '../../types'
 import {
+  dragEnterHandler,
+  dragLeaveHandler,
+  dragStartHandler,
+  dragOverHandler,
+  dragEndHandler,
+  dropHandler,
+} from './handlers'
+import {
   type Ref,
   type FC,
   useImperativeHandle,
@@ -8,8 +16,8 @@ import {
   useState,
   useRef,
 } from 'react'
-import { dragStartHandler, dragOverHandler, dropHandler } from './handlers'
 import { PersonCard } from '../PersonCard/PersonCard'
+import style from './PersonCardChunk.module.css'
 
 export type PersonCardChunkStateRefObject = {
   persons: Person[]
@@ -88,17 +96,36 @@ export const PersonCardChunk: FC<PersonCardChunkProps> = (props) => {
 
   return (
     <ul className={className}>
-      {persons.map((person) => (
+      {persons.map((person, index) => (
         <li
-          key={person.id}
+          key={`${person.id}-${index}`}
           draggable
-          onDragStart={(event) =>
-            dragStartHandler(event, person.id, chunkIndex)
+          onDrop={(event) =>
+            dropHandler(
+              event,
+              person.id,
+              chunkIndex,
+              style['dragged-over'],
+              onDrop,
+            )
           }
-          onDrop={(event) => dropHandler(event, person.id, chunkIndex, onDrop)}
+          onDragStart={(event) =>
+            dragStartHandler(event, person.id, chunkIndex, style['dragged'])
+          }
+          onDragLeave={(event) =>
+            dragLeaveHandler(event, style['dragged-over'])
+          }
+          onDragEnter={(event) =>
+            dragEnterHandler(event, style['dragged-over'])
+          }
+          onDragEnd={(event) => dragEndHandler(event, style['dragged'])}
           onDragOver={dragOverHandler}
         >
-          <PersonCard person={person} onToggleCheckbox={togglePerson} />
+          <PersonCard
+            className={style['person-card']}
+            person={person}
+            onToggleCheckbox={togglePerson}
+          />
         </li>
       ))}
     </ul>

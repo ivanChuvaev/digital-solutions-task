@@ -1,0 +1,23 @@
+.person-card {
+  position: relative;
+  transition: opacity 1ms ease-in-out;
+}
+
+.dragged .person-card {
+  opacity: 0;
+}
+
+.person-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background-color: rgba(0, 0, 0, 0.233);
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+  border-radius: inherit;
+}
+
+:not(.dragged).dragged-over .person-card::after {
+  opacity: 0.6;
+}

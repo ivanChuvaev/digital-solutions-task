@@ -29,6 +29,16 @@ const data = Array.from({ length: process.env.FAKE_DATA_SIZE }, (_, i) => ({
     checked: false,
 }))
 
+let subscribers = []
+
+const subscribe = (handler) => {
+    subscribers = [...subscribers, handler]
+}
+
+const unsubscribe = (handler) => {
+    subscribers = subscribers.filter((cb) => cb !== handler)
+}
+
 app.get('/data', (req, res) => {
     const { search, range: rangeStr } = req.query
 
@@ -83,6 +93,8 @@ app.get('/data', (req, res) => {
  * ]
  */
 app.post('/action', (req, res) => {
+    const { id } = req.query
+
     if (!req.body || !Array.isArray(req.body)) {
         return res.status(400).json({ error: 'Invalid request body' })
     }
@@ -156,7 +168,30 @@ app.post('/action', (req, res) => {
             }
         }
     }
+
+    for (const subscriber of subscribers) {
+        subscriber(id)
+    }
+
     return res.sendStatus(200)
+})
+
+app.get('/is-data-changed-long-polling', async (_, res) => {
+    const handler = (id) => res.status(200).json({ dataChanged: true, id })
+
+    subscribe(handler)
+
+    res.on('close', () => unsubscribe(handler))
+
+    await new Promise((resolve) => {
+        setTimeout(resolve, 30000)
+    })
+
+    if (res.closed) return
+
+    unsubscribe(handler)
+
+    res.status(200).json({ dataChanged: false })
 })
 
 if (process.env.NODE_ENV !== 'test') {

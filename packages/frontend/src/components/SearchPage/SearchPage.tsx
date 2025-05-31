@@ -11,7 +11,7 @@ import {
   type PersonCardChunkStateRefObject,
   PersonCardChunk,
 } from '../PersonCardChunk'
-import { useInfiniteQuery, useMutation } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query'
 import { IntersectionTrigger } from '../IntersectionTrigger'
 import { translateSyncStatus } from './translateSyncStatus'
 import { useQueryParam } from '../../hooks/useQueryParam'
@@ -27,6 +27,8 @@ export const SearchPage = () => {
     'error' | 'timeout' | 'pending' | 'synced'
   >('synced')
   const [isScrolled, setIsScrolled] = useState(false)
+
+  const uniqueIdRef = useRef(Math.random().toString(36).substring(2, 15))
 
   const pageSize = useMemo(() => {
     try {
@@ -62,7 +64,7 @@ export const SearchPage = () => {
       queryKey: ['data', search, pageSize],
       refetchOnWindowFocus: false,
       initialPageParam: 0,
-      queryFn: async ({ pageParam }) => {
+      queryFn: async ({ pageParam, signal }) => {
         const url = new URL(
           '/data',
           import.meta.env.VITE_API_URL || window.origin,
@@ -74,7 +76,7 @@ export const SearchPage = () => {
           'range',
           JSON.stringify([pageParam * pageSize, (pageParam + 1) * pageSize]),
         )
-        const res = await fetch(url)
+        const res = await fetch(url, { signal })
         return await (res.json() as Promise<Person[]>)
       },
       getNextPageParam: (lastPage, pages) => {
@@ -143,6 +145,7 @@ export const SearchPage = () => {
         '/action',
         import.meta.env.VITE_API_URL || window.origin,
       )
+      url.searchParams.set('id', uniqueIdRef.current)
       const res = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
@@ -157,6 +160,28 @@ export const SearchPage = () => {
     },
     onSuccess: () => {
       setSyncStatus('synced')
+    },
+  })
+
+  useQuery({
+    queryKey: ['data-long-polling'],
+    refetchInterval: 1,
+    queryFn: async (context) => {
+      const url = new URL(
+        '/is-data-changed-long-polling',
+        import.meta.env.VITE_API_URL || window.origin,
+      )
+      const res = await fetch(url, { signal: context.signal })
+      const response = (await res.json()) as {
+        dataChanged: boolean
+        id: string
+      }
+      if (response.dataChanged && response.id !== uniqueIdRef.current) {
+        context.client.invalidateQueries({
+          predicate: (query) => query.queryKey[0] === 'data',
+        })
+      }
+      return response
     },
   })
 
@@ -286,7 +311,7 @@ export const SearchPage = () => {
           <ul className={styles['person-list']}>
             {chunks.map((chunk, index) => (
               <Virtual.Item
-                key={chunk.chunk[0]?.id}
+                key={`${index}-${pageSize}`}
                 initialHeight={500}
                 as="li"
               >

@@ -331,13 +331,15 @@ export const SearchPage = () => {
           </ul>
         </Virtual.Root>
         {hasNextPage && (
-          <IntersectionTrigger
-            key={data?.pages.length}
-            className={styles['page-load-trigger']}
-            rootMargin="0px 0px 500px 0px"
-            mountDelay={200}
-            onIntersect={fetchNextPageDebounced}
-          />
+          <>
+            <IntersectionTrigger
+              key={data?.pages.length}
+              rootMargin="0px 0px 1000px 0px"
+              mountDelay={200}
+              onIntersect={fetchNextPageDebounced}
+            />
+            <div className={styles['next-page-loader']}>Загрузка...</div>
+          </>
         )}
       </>
     )

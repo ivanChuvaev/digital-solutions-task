@@ -105,7 +105,8 @@
   margin-bottom: 0;
 }
 
-.page-counter-svg-pattern {
+.page-counter-svg-pattern,
+.next-page-loader-svg-pattern {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -113,7 +114,8 @@
   opacity: 0.05;
 }
 
-.page-counter-svg-pattern rect {
+.page-counter-svg-pattern rect,
+.next-page-loader-svg-pattern rect {
   transform: translate(-1px, -1px);
   width: calc(100% + 1px);
   height: calc(100% + 1px);

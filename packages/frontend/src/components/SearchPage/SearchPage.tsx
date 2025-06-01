@@ -345,7 +345,12 @@ export const SearchPage = () => {
               mountDelay={200}
               onIntersect={fetchNextPageDebounced}
             />
-            <div className={styles['next-page-loader']}>Загрузка...</div>
+            <div className={styles['next-page-loader']}>
+              <svg className={styles['next-page-loader-svg-pattern']}>
+                <rect fill="url(#square-pattern)" height="100%" width="100%" />
+              </svg>
+              Загрузка...
+            </div>
           </>
         )}
       </>

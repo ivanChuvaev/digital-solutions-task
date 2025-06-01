@@ -88,7 +88,7 @@ export const SearchPage = () => {
         return await (res.json() as Promise<Person[]>)
       },
       getNextPageParam: (lastPage, pages) => {
-        return lastPage.length === pageSize ? pages.length + 1 : undefined
+        return lastPage.length === pageSize ? pages.length : undefined
       },
     })
 

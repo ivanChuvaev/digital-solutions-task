@@ -3,8 +3,6 @@ import { PersonCardChunkRoot } from './PersonCardChunkRoot'
 
 export {
   type PersonCardChunkStateRefObject,
-  type PersonCardChunkRootProps,
-  type PersonCardChunkListProps,
 } from './types'
 
 export const PersonCardChunk = {

@@ -164,6 +164,7 @@ export const SearchPage = () => {
   })
 
   useQuery({
+    refetchIntervalInBackground: true,
     queryKey: ['data-long-polling'],
     refetchInterval: 1,
     queryFn: async (context) => {

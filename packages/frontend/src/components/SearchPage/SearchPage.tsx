@@ -310,23 +310,23 @@ export const SearchPage = () => {
         <Virtual.Root rootMargin="300px 0px 300px 0px">
           <ul className={styles['person-list']}>
             {chunks.map((chunk, index) => (
-              <Virtual.Item
+              <PersonCardChunk.Root
                 key={`${index}-${pageSize}`}
-                initialHeight={500}
-                as="li"
+                stateRef={chunk.stateRef}
+                chunk={chunk.chunk}
+                chunkIndex={index}
+                onToggle={togglePersonAccumulativeFetch}
+                onDrop={swapPerson}
               >
-                {index > 0 && (
-                  <div className={styles['page-counter']}>Page {index + 1}</div>
-                )}
-                <PersonCardChunk
-                  stateRef={chunk.stateRef}
-                  className={styles['person-chunk']}
-                  chunk={chunk.chunk}
-                  chunkIndex={index}
-                  onToggle={togglePersonAccumulativeFetch}
-                  onDrop={swapPerson}
-                />
-              </Virtual.Item>
+                <Virtual.Item initialHeight={500} as="li">
+                  {index > 0 && (
+                    <div className={styles['page-counter']}>
+                      Page {index + 1}
+                    </div>
+                  )}
+                  <PersonCardChunk.List className={styles['person-chunk']} />
+                </Virtual.Item>
+              </PersonCardChunk.Root>
             ))}
           </ul>
         </Virtual.Root>

@@ -65,11 +65,7 @@ export default tseslint.config(
           type: 'line-length',
           order: 'desc',
           fallbackSort: { type: 'alphabetical', order: 'asc' },
-          groups: [
-            'property',
-            'method',
-            'unknown',
-          ],
+          groups: ['property', 'method', 'unknown'],
           destructuredObjects: false,
         },
       ],
@@ -79,31 +75,39 @@ export default tseslint.config(
           type: 'line-length',
           order: 'desc',
           fallbackSort: { type: 'alphabetical', order: 'asc' },
-          groups: ['key', 'ref', 'class', 'style', 'prop', 'event-handler', 'multiline-prop'],
+          groups: [
+            'key',
+            'ref',
+            'class',
+            'style',
+            'prop',
+            'event-handler',
+            'multiline-prop',
+          ],
           customGroups: [
             {
               groupName: 'key',
-              elementNamePattern: 'key'
+              elementNamePattern: 'key',
             },
             {
               groupName: 'class',
-              elementNamePattern: 'class'
+              elementNamePattern: 'class',
             },
             {
               groupName: 'style',
-              elementNamePattern: 'style'
+              elementNamePattern: 'style',
             },
             {
               groupName: 'ref',
-              elementNamePattern: '^.*(R|r)ef$'
+              elementNamePattern: '^.*(R|r)ef$',
             },
             {
               groupName: 'event-handler',
-              elementNamePattern: '^on.+'
-            }
-          ]
-        }
-      ]
+              elementNamePattern: '^on.+',
+            },
+          ],
+        },
+      ],
     },
   },
 )

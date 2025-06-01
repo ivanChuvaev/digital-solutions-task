@@ -1,5 +1,13 @@
+import { PersonCardChunkList } from './PersonCardChunkList'
+import { PersonCardChunkRoot } from './PersonCardChunkRoot'
+
 export {
-  PersonCardChunk,
-  type PersonCardChunkProps,
   type PersonCardChunkStateRefObject,
-} from './PersonCardChunk'
+  type PersonCardChunkRootProps,
+  type PersonCardChunkListProps,
+} from './types'
+
+export const PersonCardChunk = {
+  List: PersonCardChunkList,
+  Root: PersonCardChunkRoot,
+}

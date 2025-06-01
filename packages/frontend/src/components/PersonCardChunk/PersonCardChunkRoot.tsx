@@ -1,36 +1,23 @@
+import type { PersonCardChunkStateRefObject } from './types'
 import type { Person } from '../../types'
 import {
-  dragEnterHandler,
-  dragLeaveHandler,
-  dragStartHandler,
-  dragOverHandler,
-  dragEndHandler,
-  dropHandler,
-} from './handlers'
-import {
+  type ReactNode,
   type Ref,
   type FC,
   useImperativeHandle,
   useCallback,
   useEffect,
   useState,
+  useMemo,
   useRef,
 } from 'react'
-import { PersonCard } from '../PersonCard/PersonCard'
-import style from './PersonCardChunk.module.css'
+import { PersonCardChunkRootContext } from './PersonCardChunkRootContext'
 
-export type PersonCardChunkStateRefObject = {
-  persons: Person[]
-  replace: (id: number, newPerson: Person) => void
-  toggle: (id: number, value: boolean) => void
-  swap: (aId: number, bId: number) => void
-}
-
-export type PersonCardChunkProps = {
+export type PersonCardChunkRootProps = {
   chunkIndex: number
   chunk: Person[]
   stateRef?: Ref<PersonCardChunkStateRefObject>
-  className?: string
+  children?: ReactNode
   onDrop?: (
     aChunkIndex: number,
     aPersonId: number,
@@ -40,13 +27,27 @@ export type PersonCardChunkProps = {
   onToggle?: (id: number, value: boolean) => void
 }
 
-export const PersonCardChunk: FC<PersonCardChunkProps> = (props) => {
-  const { chunkIndex, className, onToggle, stateRef, onDrop, chunk } = props
+export const PersonCardChunkRoot: FC<PersonCardChunkRootProps> = (props) => {
+  const { chunkIndex, stateRef, chunk, children, onToggle, onDrop } = props
 
   const [persons, setPersons] = useState(chunk)
 
   const onToggleRef = useRef(onToggle)
+  const onDropRef = useRef(onDrop)
   onToggleRef.current = onToggle
+  onDropRef.current = onDrop
+
+  const handleDrop = useCallback(
+    (
+      aChunkIndex: number,
+      aPersonId: number,
+      bChunkIndex: number,
+      bPersonId: number,
+    ) => {
+      onDropRef.current?.(aChunkIndex, aPersonId, bChunkIndex, bPersonId)
+    },
+    [],
+  )
 
   const togglePerson = useCallback((id: number, value: boolean) => {
     setPersons((prev) => {
@@ -79,6 +80,16 @@ export const PersonCardChunk: FC<PersonCardChunkProps> = (props) => {
     [setPersons],
   )
 
+  const provideValue = useMemo(
+    () => ({
+      onToggle: togglePerson,
+      onDrop: handleDrop,
+      chunkIndex,
+      persons,
+    }),
+    [togglePerson, chunkIndex, persons, handleDrop],
+  )
+
   useImperativeHandle(
     stateRef,
     () => ({
@@ -95,39 +106,8 @@ export const PersonCardChunk: FC<PersonCardChunkProps> = (props) => {
   }, [chunk])
 
   return (
-    <ul className={className}>
-      {persons.map((person, index) => (
-        <li
-          key={`${person.id}-${index}`}
-          draggable
-          onDrop={(event) =>
-            dropHandler(
-              event,
-              person.id,
-              chunkIndex,
-              style['dragged-over'],
-              onDrop,
-            )
-          }
-          onDragStart={(event) =>
-            dragStartHandler(event, person.id, chunkIndex, style['dragged'])
-          }
-          onDragLeave={(event) =>
-            dragLeaveHandler(event, style['dragged-over'])
-          }
-          onDragEnter={(event) =>
-            dragEnterHandler(event, style['dragged-over'])
-          }
-          onDragEnd={(event) => dragEndHandler(event, style['dragged'])}
-          onDragOver={dragOverHandler}
-        >
-          <PersonCard
-            className={style['person-card']}
-            person={person}
-            onToggleCheckbox={togglePerson}
-          />
-        </li>
-      ))}
-    </ul>
+    <PersonCardChunkRootContext.Provider value={provideValue}>
+      {children}
+    </PersonCardChunkRootContext.Provider>
   )
 }

@@ -64,10 +64,11 @@
   background-color: #f0f0f0;
 }
 
-.page-counter, .next-page-loader {
+.page-counter,
+.next-page-loader {
   text-align: center;
   padding: 10px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: #f0f0f0;
+  background: #f8f8f8;
   margin: 10px 0;
 }

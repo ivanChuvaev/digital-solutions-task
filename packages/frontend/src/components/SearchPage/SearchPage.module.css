@@ -101,6 +101,10 @@
   margin: 10px 0;
 }
 
+.next-page-loader {
+  margin-bottom: 0;
+}
+
 .page-counter-svg-pattern {
   position: absolute;
   inset: 0;

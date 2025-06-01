@@ -26,9 +26,9 @@ export const PersonCardChunkList: FC<PersonCardChunkListProps> = (props) => {
 
   return (
     <ul className={className}>
-      {persons.map((person, index) => (
+      {persons.map((person) => (
         <li
-          key={`${person.id}-${index}`}
+          key={person.id}
           draggable
           onDrop={(event) =>
             dropHandler(

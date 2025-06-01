@@ -29,15 +29,62 @@ const data = Array.from({ length: process.env.FAKE_DATA_SIZE }, (_, i) => ({
     checked: false,
 }))
 
-let subscribers = []
+class LongPollingNotifier {
+    _subscribers
 
-const subscribe = (handler) => {
-    subscribers = [...subscribers, handler]
+    constructor() {
+        this._subscribers = new Map()
+        this.subscribe = this.subscribe.bind(this)
+        this.unsubscribe = this.unsubscribe.bind(this)
+        this.notify = this.notify.bind(this)
+    }
+
+    subscribe(id, handler) {
+        const subscriber = this._subscribers.get(id)
+
+        if (subscriber) {
+            clearTimeout(subscriber.timeoutId)
+            if (subscriber.actions.length > 0) {
+                handler(subscriber.actions)
+            }
+        }
+
+        this._subscribers.set(id, {
+            id,
+            handler,
+            timeoutId: null,
+            actions: [],
+        })
+    }
+
+    unsubscribe(id) {
+        const subscriber = this._subscribers.get(id)
+
+        if (!subscriber || !subscriber.handler) return
+
+        this._subscribers.set(id, {
+            ...subscriber,
+            handler: null,
+            timeoutId: setTimeout(() => {
+                this._subscribers.delete(id)
+            }, 5000),
+        })
+    }
+
+    notify(id, actions) {
+        for (const subscriber of this._subscribers.values()) {
+            if (subscriber.id === id) continue
+
+            if (subscriber.handler) {
+                subscriber.handler(actions)
+            } else {
+                subscriber.actions.push(...actions)
+            }
+        }
+    }
 }
 
-const unsubscribe = (handler) => {
-    subscribers = subscribers.filter((cb) => cb !== handler)
-}
+const longPollingNotifier = new LongPollingNotifier()
 
 app.get('/data', (req, res) => {
     const { search, range: rangeStr } = req.query
@@ -94,6 +141,12 @@ app.get('/data', (req, res) => {
  */
 app.post('/action', (req, res) => {
     const { id } = req.query
+
+    if (!id) {
+        return res
+            .status(400)
+            .json({ error: 'id is required in search params' })
+    }
 
     if (!req.body || !Array.isArray(req.body)) {
         return res.status(400).json({ error: 'Invalid request body' })
@@ -169,29 +222,33 @@ app.post('/action', (req, res) => {
         }
     }
 
-    for (const subscriber of subscribers) {
-        subscriber(id)
-    }
+    longPollingNotifier.notify(id, req.body)
 
     return res.sendStatus(200)
 })
 
-app.get('/is-data-changed-long-polling', async (_, res) => {
-    const handler = (id) => res.status(200).json({ dataChanged: true, id })
+app.get('/is-data-changed-long-polling', async (req, res) => {
+    const { id } = req.query
 
-    subscribe(handler)
+    if (!id) {
+        return res
+            .status(400)
+            .json({ error: 'id is required in search params' })
+    }
 
-    res.on('close', () => unsubscribe(handler))
+    const handler = (actions) => res.status(200).json({ actions })
+
+    longPollingNotifier.subscribe(id, handler)
+
+    res.on('close', () => longPollingNotifier.unsubscribe(id))
 
     await new Promise((resolve) => {
-        setTimeout(resolve, 30000)
+        setTimeout(resolve, 60 * 1000)
     })
 
     if (res.closed) return
 
-    unsubscribe(handler)
-
-    res.status(200).json({ dataChanged: false })
+    res.status(200).json({ actions: [] })
 })
 
 if (process.env.NODE_ENV !== 'test') {

@@ -37,27 +37,6 @@ export const PersonCardChunkRoot: FC<PersonCardChunkRootProps> = (props) => {
   onToggleRef.current = onToggle
   onDropRef.current = onDrop
 
-  const handleDrop = useCallback(
-    (
-      aChunkIndex: number,
-      aPersonId: number,
-      bChunkIndex: number,
-      bPersonId: number,
-    ) => {
-      onDropRef.current?.(aChunkIndex, aPersonId, bChunkIndex, bPersonId)
-    },
-    [],
-  )
-
-  const togglePerson = useCallback((id: number, value: boolean) => {
-    setPersons((prev) => {
-      return prev.map((person) =>
-        person.id === id ? { ...person, checked: value } : person,
-      )
-    })
-    onToggleRef.current?.(id, value)
-  }, [])
-
   const swapPerson = useCallback(
     (aId: number, bId: number) => {
       setPersons((prev) => {
@@ -71,6 +50,34 @@ export const PersonCardChunkRoot: FC<PersonCardChunkRootProps> = (props) => {
     [setPersons],
   )
 
+  const togglePerson = useCallback((id: number, value: boolean) => {
+    setPersons((prev) => {
+      return prev.map((person) =>
+        person.id === id ? { ...person, checked: value } : person,
+      )
+    })
+  }, [])
+
+  const handleDrop = useCallback(
+    (
+      aChunkIndex: number,
+      aPersonId: number,
+      bChunkIndex: number,
+      bPersonId: number,
+    ) => {
+      onDropRef.current?.(aChunkIndex, aPersonId, bChunkIndex, bPersonId)
+    },
+    [],
+  )
+
+  const handleToggle = useCallback(
+    (id: number, value: boolean) => {
+      togglePerson(id, value)
+      onToggleRef.current?.(id, value)
+    },
+    [togglePerson],
+  )
+
   const replacePerson = useCallback(
     (id: number, newPerson: Person) => {
       setPersons((prev) => {
@@ -82,12 +89,12 @@ export const PersonCardChunkRoot: FC<PersonCardChunkRootProps> = (props) => {
 
   const provideValue = useMemo(
     () => ({
-      onToggle: togglePerson,
+      onToggle: handleToggle,
       onDrop: handleDrop,
       chunkIndex,
       persons,
     }),
-    [togglePerson, chunkIndex, persons, handleDrop],
+    [chunkIndex, persons, handleDrop, handleToggle],
   )
 
   useImperativeHandle(

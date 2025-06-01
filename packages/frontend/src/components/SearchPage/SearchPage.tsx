@@ -1,6 +1,7 @@
-import type { MutationAction, Person } from '../../types'
+import type { MutationAction, SyncStatus, Person } from '../../types'
 import {
   type ReactNode,
+  useCallback,
   createRef,
   useEffect,
   useState,
@@ -8,10 +9,15 @@ import {
   useRef,
 } from 'react'
 import {
+  useInfiniteQuery,
+  useQueryClient,
+  useMutation,
+  useQuery,
+} from '@tanstack/react-query'
+import {
   type PersonCardChunkStateRefObject,
   PersonCardChunk,
 } from '../PersonCardChunk'
-import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query'
 import { IntersectionTrigger } from '../IntersectionTrigger'
 import { translateSyncStatus } from './translateSyncStatus'
 import { useQueryParam } from '../../hooks/useQueryParam'
@@ -23,12 +29,16 @@ import cn from 'classnames'
 export const SearchPage = () => {
   const [search, setSearch] = useQueryParam('search')
   const [pageSizeStr, setPageSizeStr] = useQueryParam('pageSize')
-  const [syncStatus, setSyncStatus] = useState<
-    'error' | 'timeout' | 'pending' | 'synced'
-  >('synced')
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced')
   const [isScrolled, setIsScrolled] = useState(false)
+  const queryClient = useQueryClient()
 
+  const syncStatusRef = useRef<SyncStatus>(syncStatus)
+  const actionsOnSyncedRef = useRef<Array<() => void>>([])
   const uniqueIdRef = useRef(Math.random().toString(36).substring(2, 15))
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  syncStatusRef.current = syncStatus
 
   const pageSize = useMemo(() => {
     try {
@@ -52,8 +62,6 @@ export const SearchPage = () => {
     return options
   }, [pageSize])
 
-  const searchInputRef = useRef<HTMLInputElement>(null)
-
   const setSearchDebounced = useMemo(
     () => debounce(setSearch, 500),
     [setSearch],
@@ -62,7 +70,7 @@ export const SearchPage = () => {
   const { fetchNextPage, hasNextPage, isLoading, error, data } =
     useInfiniteQuery({
       queryKey: ['data', search, pageSize],
-      refetchOnWindowFocus: false,
+      staleTime: Number.POSITIVE_INFINITY,
       initialPageParam: 0,
       queryFn: async ({ pageParam, signal }) => {
         const url = new URL(
@@ -85,61 +93,6 @@ export const SearchPage = () => {
     })
 
   const { mutate: actionFetch } = useMutation({
-    onError: (_, actions) => {
-      setSyncStatus('error')
-      for (const action of actions.reverse()) {
-        switch (action.type) {
-          case 'toggle': {
-            const [id, value] = action.payload
-
-            const chunk = chunks?.find((chunk) =>
-              chunk.stateRef.current?.persons.find(
-                (person) => person.id === id,
-              ),
-            )
-
-            if (chunk) {
-              chunk.stateRef.current?.toggle(id, !value)
-            }
-
-            break
-          }
-          case 'swap': {
-            const [aId, bId] = action.payload
-
-            const aChunk = chunks?.find((chunk) =>
-              chunk.stateRef.current?.persons.find(
-                (person) => person.id === aId,
-              ),
-            )
-            const bChunk = chunks?.find((chunk) =>
-              chunk.stateRef.current?.persons.find(
-                (person) => person.id === bId,
-              ),
-            )
-
-            if (aChunk && bChunk) {
-              if (aChunk === bChunk) {
-                aChunk.stateRef.current?.swap(aId, bId)
-              } else {
-                const aPerson = aChunk.stateRef?.current?.persons.find(
-                  (person) => person.id === aId,
-                )
-                const bPerson = bChunk.stateRef?.current?.persons.find(
-                  (person) => person.id === bId,
-                )
-                if (aPerson && bPerson) {
-                  aChunk.stateRef.current?.replace(aId, bPerson)
-                  bChunk.stateRef.current?.replace(bId, aPerson)
-                }
-              }
-            }
-
-            break
-          }
-        }
-      }
-    },
     mutationFn: async (entries: MutationAction[]) => {
       const url = new URL(
         '/action',
@@ -158,7 +111,21 @@ export const SearchPage = () => {
       }
       return res
     },
+    onError: (_, actions) => {
+      setSyncStatus('error')
+      const reversedActions = actions.reverse().map((action) => {
+        if (action.type === 'toggle') {
+          action.payload[1] = !action.payload[1]
+        }
+        return action
+      })
+      runActionWhenSynced(() => applyActionsLocally(reversedActions))
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries({
+        refetchType: 'none',
+        queryKey: ['data'],
+      })
       setSyncStatus('synced')
     },
   })
@@ -172,14 +139,16 @@ export const SearchPage = () => {
         '/is-data-changed-long-polling',
         import.meta.env.VITE_API_URL || window.origin,
       )
+      url.searchParams.set('id', uniqueIdRef.current)
       const res = await fetch(url, { signal: context.signal })
       const response = (await res.json()) as {
-        dataChanged: boolean
-        id: string
+        actions: MutationAction[]
       }
-      if (response.dataChanged && response.id !== uniqueIdRef.current) {
+      if (response.actions.length > 0) {
+        runActionWhenSynced(() => applyActionsLocally(response.actions))
         context.client.invalidateQueries({
-          predicate: (query) => query.queryKey[0] === 'data',
+          refetchType: 'none',
+          queryKey: ['data'],
         })
       }
       return response
@@ -203,32 +172,41 @@ export const SearchPage = () => {
     }))
   }, [data])
 
+  const chunksRef = useRef(chunks)
+  chunksRef.current = chunks
+
+  const runActionWhenSynced = useCallback((action: () => void) => {
+    if (syncStatusRef.current === 'synced') {
+      action()
+      return
+    }
+    actionsOnSyncedRef.current.push(action)
+  }, [])
+
   const fetchNextPageDebounced = useMemo(
     () => debounce(fetchNextPage, 300, { leading: true }),
     [fetchNextPage],
   )
 
-  const swapPersonLocal = (
-    aChunkIndex: number,
-    aId: number,
-    bChunkIndex: number,
-    bId: number,
-  ) => {
-    if (!chunks) return
-    const aItem = chunks[aChunkIndex].stateRef.current?.persons.find(
-      (item) => item.id === aId,
-    )
-    const bItem = chunks[bChunkIndex].stateRef.current?.persons.find(
-      (item) => item.id === bId,
-    )
-    if (!aItem || !bItem) return
-    if (aChunkIndex === bChunkIndex) {
-      chunks[aChunkIndex].stateRef.current?.swap(aId, bId)
-    } else {
-      chunks[aChunkIndex].stateRef.current?.replace(aId, bItem)
-      chunks[bChunkIndex].stateRef.current?.replace(bId, aItem)
-    }
-  }
+  const swapPersonLocal = useCallback(
+    (aChunkIndex: number, aId: number, bChunkIndex: number, bId: number) => {
+      if (!chunksRef.current) return
+      if (aChunkIndex === bChunkIndex) {
+        chunksRef.current[aChunkIndex].stateRef.current?.swap(aId, bId)
+      } else {
+        const aPerson = chunksRef.current[
+          aChunkIndex
+        ].stateRef.current?.persons.find((item) => item.id === aId)
+        const bPerson = chunksRef.current[
+          bChunkIndex
+        ].stateRef.current?.persons.find((item) => item.id === bId)
+        if (!aPerson || !bPerson) return
+        chunksRef.current[aChunkIndex].stateRef.current?.replace(aId, bPerson)
+        chunksRef.current[bChunkIndex].stateRef.current?.replace(bId, aPerson)
+      }
+    },
+    [],
+  )
 
   const actionAccumulativeFetch = useMemo(() => {
     let entries: MutationAction[] = []
@@ -251,39 +229,94 @@ export const SearchPage = () => {
     }
   }, [actionFetch])
 
-  const togglePersonAccumulativeFetch = useMemo(() => {
-    return (id: number, value: boolean) => {
+  const applyActionsLocally = useCallback(
+    (actions: MutationAction[]) => {
+      for (const action of actions) {
+        switch (action.type) {
+          case 'toggle': {
+            const [id, value] = action.payload
+
+            const chunk = chunksRef.current?.find((chunk) =>
+              chunk.stateRef.current?.persons.find(
+                (person) => person.id === id,
+              ),
+            )
+
+            if (chunk) {
+              chunk.stateRef.current?.toggle(id, value)
+            }
+
+            break
+          }
+          case 'swap': {
+            const [aId, bId] = action.payload
+
+            const aChunkIndex =
+              chunksRef.current?.findIndex((chunk) =>
+                chunk.stateRef.current?.persons.find(
+                  (person) => person.id === aId,
+                ),
+              ) ?? -1
+
+            const bChunkIndex =
+              chunksRef.current?.findIndex((chunk) =>
+                chunk.stateRef.current?.persons.find(
+                  (person) => person.id === bId,
+                ),
+              ) ?? -1
+
+            if (aChunkIndex !== -1 && bChunkIndex !== -1) {
+              swapPersonLocal(aChunkIndex, aId, bChunkIndex, bId)
+            }
+
+            break
+          }
+        }
+      }
+    },
+    [swapPersonLocal],
+  )
+
+  const togglePersonAccumulativeFetch = useCallback(
+    (id: number, value: boolean) => {
       actionAccumulativeFetch({
         payload: [id, value],
         type: 'toggle',
       })
-    }
-  }, [actionAccumulativeFetch])
+    },
+    [actionAccumulativeFetch],
+  )
 
-  const swapPersonAccumulativeFetch = useMemo(() => {
-    return (aId: number, bId: number) => {
+  const swapPersonAccumulativeFetch = useCallback(
+    (aId: number, bId: number) => {
       actionAccumulativeFetch({
         payload: [aId, bId],
         type: 'swap',
       })
-    }
-  }, [actionAccumulativeFetch])
+    },
+    [actionAccumulativeFetch],
+  )
 
-  const swapPerson = (
-    aChunkIndex: number,
-    aId: number,
-    bChunkIndex: number,
-    bId: number,
-  ) => {
-    swapPersonAccumulativeFetch(aId, bId)
-    swapPersonLocal(aChunkIndex, aId, bChunkIndex, bId)
-  }
+  const swapPerson = useCallback(
+    (aChunkIndex: number, aId: number, bChunkIndex: number, bId: number) => {
+      swapPersonAccumulativeFetch(aId, bId)
+      swapPersonLocal(aChunkIndex, aId, bChunkIndex, bId)
+    },
+    [swapPersonAccumulativeFetch, swapPersonLocal],
+  )
 
   useEffect(() => {
     if (searchInputRef.current) {
       searchInputRef.current.value = search ?? ''
     }
   }, [search])
+
+  useEffect(() => {
+    if (syncStatus === 'synced') {
+      actionsOnSyncedRef.current.forEach((action) => action())
+      actionsOnSyncedRef.current = []
+    }
+  }, [syncStatus])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -308,8 +341,8 @@ export const SearchPage = () => {
   } else {
     content = (
       <>
-        <Virtual.Root rootMargin="300px 0px 300px 0px">
-          <ul className={styles['person-list']}>
+        <ul className={styles['person-list']}>
+          <Virtual.Root rootMargin="300px 0px 300px 0px">
             {chunks.map((chunk, index) => (
               <PersonCardChunk.Root
                 key={`${index}-${pageSize}`}
@@ -336,8 +369,8 @@ export const SearchPage = () => {
                 </Virtual.Item>
               </PersonCardChunk.Root>
             ))}
-          </ul>
-        </Virtual.Root>
+          </Virtual.Root>
+        </ul>
         {hasNextPage && (
           <>
             <IntersectionTrigger
@@ -350,7 +383,7 @@ export const SearchPage = () => {
               <svg className={styles['next-page-loader-svg-pattern']}>
                 <rect fill="url(#square-pattern)" height="100%" width="100%" />
               </svg>
-              Загрузка...
+              Loading...
             </div>
           </>
         )}

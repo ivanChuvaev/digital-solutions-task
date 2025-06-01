@@ -321,6 +321,13 @@ export const SearchPage = () => {
                 <Virtual.Item initialHeight={500} as="li">
                   {index > 0 && (
                     <div className={styles['page-counter']}>
+                      <svg className={styles['page-counter-svg-pattern']}>
+                        <rect
+                          fill="url(#square-pattern)"
+                          height="100%"
+                          width="100%"
+                        />
+                      </svg>
                       Page {index + 1}
                     </div>
                   )}
@@ -352,6 +359,9 @@ export const SearchPage = () => {
           [styles['search--scrolled']]: isScrolled,
         })}
       >
+        <svg className={styles['search-svg-pattern']}>
+          <rect fill="url(#square-pattern)" height="100%" width="100%" />
+        </svg>
         <div className={cn(styles['search-container'], 'container')}>
           <input
             ref={searchInputRef}

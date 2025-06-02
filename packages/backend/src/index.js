@@ -22,8 +22,8 @@ app.use(express.static(path.resolve('..', 'frontend', 'dist')))
 const data = Array.from({ length: process.env.FAKE_DATA_SIZE }, (_, i) => ({
     id: i + 1,
     avatar: faker.image.avatar(),
-    first_name: faker.person.firstName(),
-    last_name: faker.person.lastName(),
+    first_name: i + 1,
+    last_name: '',
     email: faker.internet.email(),
     phone: faker.phone.number(),
     checked: false,

@@ -22,11 +22,6 @@ export const PersonCard: FC<PersonCardProps> = ({
         checked={person.checked}
         onChange={() => onToggleCheckbox(person.id, !person.checked)}
       />
-      <img
-        className={styles['person-card-avatar']}
-        alt={person.id.toString()}
-        src={person.avatar}
-      />
       <div className={styles['person-card-content']}>
         <b>
           {person.id}

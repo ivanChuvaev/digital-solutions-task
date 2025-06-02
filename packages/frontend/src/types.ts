@@ -1,6 +1,5 @@
 export type Person = {
   checked: boolean
-  avatar: string
   id: number
 }
 

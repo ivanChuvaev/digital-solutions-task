@@ -21,7 +21,6 @@ app.use(express.static(path.resolve('..', 'frontend', 'dist')))
 
 const data = Array.from({ length: process.env.FAKE_DATA_SIZE }, (_, i) => ({
     id: i + 1,
-    avatar: faker.image.avatar(),
     checked: false,
 }))
 

@@ -52,7 +52,7 @@ export const SearchPage = () => {
   }, [pageSizeStr])
 
   const pageSizeOptions = useMemo(() => {
-    const options = [20, 50, 100, 200, 500, 1000]
+    const options = [20, 50, 100]
 
     if (!options.includes(pageSize)) {
       options.push(pageSize)

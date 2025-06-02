@@ -1,10 +1,6 @@
 export type Person = {
-  first_name: string
-  last_name: string
   checked: boolean
   avatar: string
-  email: string
-  phone: string
   id: number
 }
 

@@ -24,16 +24,14 @@ export const PersonCard: FC<PersonCardProps> = ({
       />
       <img
         className={styles['person-card-avatar']}
-        alt={person.first_name}
+        alt={person.id.toString()}
         src={person.avatar}
       />
       <div className={styles['person-card-content']}>
         <b>
-          {person.first_name} {person.last_name}
+          {person.id}
           <div className={styles['person-card-content-id']}>{person.id}</div>
         </b>
-        <div>{person.email}</div>
-        <div>{person.phone}</div>
       </div>
     </article>
   )

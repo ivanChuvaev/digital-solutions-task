@@ -22,10 +22,6 @@ app.use(express.static(path.resolve('..', 'frontend', 'dist')))
 const data = Array.from({ length: process.env.FAKE_DATA_SIZE }, (_, i) => ({
     id: i + 1,
     avatar: faker.image.avatar(),
-    first_name: i + 1,
-    last_name: '',
-    email: faker.internet.email(),
-    phone: faker.phone.number(),
     checked: false,
 }))
 
@@ -114,12 +110,7 @@ app.get('/data', (req, res) => {
     if (search) {
         result = result.filter((item) => {
             const searchUpperCased = search.toUpperCase()
-            const fullName = `${item.first_name} ${item.last_name}`
-            return (
-                fullName.toUpperCase().includes(searchUpperCased) ||
-                item.email.toUpperCase().includes(searchUpperCased) ||
-                item.phone.toUpperCase().includes(searchUpperCased)
-            )
+            return item.id.toString().includes(searchUpperCased)
         })
     }
 

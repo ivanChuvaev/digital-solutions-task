@@ -1,30 +1,28 @@
 export const movePersonFactory = (data) => {
     return (oldIndex, newIndex) => {
-        const oldIndexLocal = data.findIndex(
-            (person) => person.index === oldIndex,
-        )
-        const newIndexLocal = data.findIndex(
-            (person) => person.index === newIndex,
-        )
-
-        if (oldIndexLocal === -1 || newIndexLocal === -1) {
-            throw new Error('Old or new local indices not found')
+        if (
+            oldIndex < 0 ||
+            newIndex < 0 ||
+            oldIndex >= data.length ||
+            newIndex >= data.length
+        ) {
+            throw new Error('Index out of bounds')
         }
 
-        const savedItem = data[oldIndexLocal]
+        const savedItem = data[oldIndex]
 
-        if (newIndexLocal < oldIndexLocal) {
+        if (newIndex < oldIndex) {
             // Moving up
-            for (let i = oldIndexLocal; i > newIndexLocal; i -= 1) {
-                data[i] = { ...data[i - 1], index: data[i - 1].index + 1 }
+            for (let i = oldIndex; i > newIndex; i -= 1) {
+                data[i] = data[i - 1]
             }
         } else {
             // Moving down
-            for (let i = oldIndexLocal; i < newIndexLocal; i += 1) {
-                data[i] = { ...data[i + 1], index: data[i + 1].index - 1 }
+            for (let i = oldIndex; i < newIndex; i += 1) {
+                data[i] = data[i + 1]
             }
         }
 
-        data[newIndexLocal] = { ...savedItem, index: data[newIndexLocal].index }
+        data[newIndex] = savedItem
     }
 }

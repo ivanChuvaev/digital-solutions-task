@@ -1,11 +1,8 @@
 export const togglePersonFactory = (data) => {
     return (index) => {
-        const indexLocal = data.findIndex((item) => item.index === index)
-
-        if (indexLocal === -1) {
-            throw new Error('Index not found')
+        if (index < 0 || index >= data.length) {
+            throw new Error('Index out of bounds')
         }
-
-        data[indexLocal].checked = !data[indexLocal].checked
+        data[index].checked = !data[index].checked
     }
 }

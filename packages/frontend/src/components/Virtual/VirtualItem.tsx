@@ -23,7 +23,7 @@ export type VirtualItemStateRefObject = {
 }
 
 export type VirtualItemProps<T extends keyof JSX.IntrinsicElements> = {
-  children: ReactNode
+  children: ReactNode | ((isVisible: boolean) => ReactNode)
   initialHeight?: number
   className?: string
   as?: T
@@ -64,12 +64,16 @@ export const VirtualItem = <T extends keyof JSX.IntrinsicElements>(
     setVisible,
   })
 
-  useImperativeHandle(stateRef, () => {
-    return {
-      saveHeight,
-      setVisible,
-    }
-  }, [setVisible, saveHeight])
+  useImperativeHandle(
+    stateRef,
+    () => {
+      return {
+        saveHeight,
+        setVisible,
+      }
+    },
+    [setVisible, saveHeight],
+  )
 
   useEffect(() => {
     const element = ref.current
@@ -88,7 +92,11 @@ export const VirtualItem = <T extends keyof JSX.IntrinsicElements>(
       ref={ref}
       className={cn(className, styles.item, visible && styles['item--visible'])}
     >
-      {visible ? children : null}
+      {typeof children === 'function'
+        ? children(visible)
+        : visible
+        ? children
+        : null}
     </Component>
   )
 }

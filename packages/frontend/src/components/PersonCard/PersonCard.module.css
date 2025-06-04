@@ -29,15 +29,12 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 4px;
   word-break: break-word;
 }
 
 .person-card-content-id {
   display: inline;
-  float: right;
-  margin-left: auto;
   font-family: monospace;
   font-weight: 400;
   color: rgb(165, 165, 165);

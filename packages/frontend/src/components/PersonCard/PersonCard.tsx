@@ -20,13 +20,21 @@ export const PersonCard: FC<PersonCardProps> = ({
       <Checkbox
         className={styles['person-card-checkbox']}
         checked={person.checked}
-        onChange={() => onToggleCheckbox(person.id, !person.checked)}
+        onChange={() => onToggleCheckbox(person.index, !person.checked)}
+      />
+      <img
+        className={styles['person-card-avatar']}
+        alt={person.first_name}
+        src={person.avatar}
       />
       <div className={styles['person-card-content']}>
         <b>
-          {person.id}
-          <div className={styles['person-card-content-id']}>{person.id}</div>
+          {person.first_name} {person.last_name}
         </b>
+        <div>{person.email}</div>
+        <div className={styles['person-card-content-id']}>
+          ID: {person.id} INDEX: {person.index}
+        </div>
       </div>
     </article>
   )

@@ -7,22 +7,21 @@ import {
   dragEndHandler,
   dropHandler,
 } from './handlers'
-import { usePersonCardChunk } from './usePersonCardChunk'
+import { usePersonCardPage } from './usePersonCardPage'
 import { PersonCard } from '../PersonCard/PersonCard'
-import style from './PersonCardChunkList.module.css'
+import style from './PersonCardPageList.module.css'
 
-export type PersonCardChunkListProps = {
+export type PersonCardPageListProps = {
   className?: string
 }
 
-export const PersonCardChunkList: FC<PersonCardChunkListProps> = (props) => {
+export const PersonCardPageList: FC<PersonCardPageListProps> = (props) => {
   const { className } = props
-  const {
-    persons,
-    chunkIndex,
-    onToggle: togglePerson,
-    onDrop,
-  } = usePersonCardChunk()
+  const { persons, onToggle, onDrop } = usePersonCardPage()
+
+  if (!persons || persons.length === 0) {
+    return null
+  }
 
   return (
     <ul className={className}>
@@ -31,16 +30,10 @@ export const PersonCardChunkList: FC<PersonCardChunkListProps> = (props) => {
           key={person.id}
           draggable
           onDrop={(event) =>
-            dropHandler(
-              event,
-              person.id,
-              chunkIndex,
-              style['dragged-over'],
-              onDrop,
-            )
+            dropHandler(event, person.index, style['dragged-over'], onDrop)
           }
           onDragStart={(event) =>
-            dragStartHandler(event, person.id, chunkIndex, style['dragged'])
+            dragStartHandler(event, person.index, style['dragged'])
           }
           onDragLeave={(event) =>
             dragLeaveHandler(event, style['dragged-over'])
@@ -54,7 +47,7 @@ export const PersonCardChunkList: FC<PersonCardChunkListProps> = (props) => {
           <PersonCard
             className={style['person-card']}
             person={person}
-            onToggleCheckbox={togglePerson}
+            onToggleCheckbox={onToggle}
           />
         </li>
       ))}

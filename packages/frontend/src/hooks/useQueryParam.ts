@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { type SetStateAction, useCallback, useEffect, useState } from 'react'
 
 export const useQueryParam = (key: string) => {
   const [value, setValue] = useState<string | null>(() => {
@@ -7,15 +7,32 @@ export const useQueryParam = (key: string) => {
   })
 
   const setParam = useCallback(
-    (newValue: string) => {
+    (newValue: SetStateAction<string | null>) => {
       const searchParams = new URLSearchParams(window.location.search)
-      searchParams.set(key, newValue)
-      window.history.pushState(
-        {},
-        '',
-        window.location.pathname + '?' + searchParams.toString(),
-      )
-      setValue(newValue)
+
+      setValue((prev) => {
+        let value: string | null
+
+        if (typeof newValue === 'function') {
+          value = newValue(prev)
+        } else {
+          value = newValue
+        }
+
+        if (value === null) {
+          searchParams.delete(key)
+        } else {
+          searchParams.set(key, value)
+        }
+
+        window.history.pushState(
+          {},
+          '',
+          window.location.pathname + '?' + searchParams.toString(),
+        )
+
+        return value
+      })
     },
     [key],
   )

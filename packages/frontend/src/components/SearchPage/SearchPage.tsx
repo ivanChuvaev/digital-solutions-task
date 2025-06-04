@@ -1,4 +1,4 @@
-import type { MutationAction, SyncStatus, Person } from '../../types'
+import type { MutationAction, SyncStatus } from '../../types'
 import {
   type ReactNode,
   useCallback,
@@ -9,28 +9,36 @@ import {
   useRef,
 } from 'react'
 import {
-  useInfiniteQuery,
-  useQueryClient,
-  useMutation,
-  useQuery,
-} from '@tanstack/react-query'
-import {
-  type PersonCardChunkStateRefObject,
-  PersonCardChunk,
-} from '../PersonCardChunk'
+  type PersonCardPageStateRefObject,
+  PersonCardPage,
+} from '../PersonCardPage'
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query'
+import { useIsWindowScrolled } from '../../hooks/useIsWindowScrolled'
+import { useQueryParamNumber } from '../../hooks/useQueryParamNumber'
+import { togglePersonFactory } from './helpers/togglePersonFactory'
+import { movePersonFactory } from './helpers/movePersonFactory'
+import { swapPersonFactory } from './helpers/swapPersonFactory'
+import { useLocalStorage } from '../../hooks/useLocalStorage'
 import { IntersectionTrigger } from '../IntersectionTrigger'
 import { translateSyncStatus } from './translateSyncStatus'
 import { useQueryParam } from '../../hooks/useQueryParam'
 import { debounce } from '../../utils/debounce'
 import styles from './SearchPage.module.css'
+import { PatternBox } from '../PatternBox'
 import { Virtual } from '../Virtual'
 import cn from 'classnames'
 
 export const SearchPage = () => {
   const [search, setSearch] = useQueryParam('search')
-  const [pageSizeStr, setPageSizeStr] = useQueryParam('pageSize')
+  const [pageSize, setPageSize] = useQueryParamNumber('pageSize', 20)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced')
-  const [isScrolled, setIsScrolled] = useState(false)
+  const [pageCount, setPageCount] = useState(1)
+  const isWindowScrolled = useIsWindowScrolled()
+  const [dropAction, setDropAction] = useLocalStorage<'SWAP' | 'MOVE'>(
+    'drop-action',
+    'MOVE',
+  )
+
   const queryClient = useQueryClient()
 
   const syncStatusRef = useRef<SyncStatus>(syncStatus)
@@ -39,17 +47,6 @@ export const SearchPage = () => {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   syncStatusRef.current = syncStatus
-
-  const pageSize = useMemo(() => {
-    try {
-      if (!pageSizeStr) throw new Error()
-      const parsed = parseInt(pageSizeStr)
-      if (Number.isNaN(parsed)) throw new Error()
-      return parsed
-    } catch {
-      return 20
-    }
-  }, [pageSizeStr])
 
   const pageSizeOptions = useMemo(() => {
     const options = [20, 50, 100]
@@ -67,30 +64,25 @@ export const SearchPage = () => {
     [setSearch],
   )
 
-  const { fetchNextPage, hasNextPage, isLoading, error, data } =
-    useInfiniteQuery({
-      queryKey: ['data', search, pageSize],
-      staleTime: Number.POSITIVE_INFINITY,
-      initialPageParam: 0,
-      queryFn: async ({ pageParam, signal }) => {
-        const url = new URL(
-          '/data',
-          import.meta.env.VITE_API_URL || window.origin,
-        )
-        if (search) {
-          url.searchParams.set('search', search)
-        }
-        url.searchParams.set(
-          'range',
-          JSON.stringify([pageParam * pageSize, (pageParam + 1) * pageSize]),
-        )
-        const res = await fetch(url, { signal })
-        return await (res.json() as Promise<Person[]>)
-      },
-      getNextPageParam: (lastPage, pages) => {
-        return lastPage.length === pageSize ? pages.length : undefined
-      },
-    })
+  const {
+    data: totalCount,
+    isLoading: isLodingTotalCount,
+    error: errorTotalCount,
+  } = useQuery({
+    queryKey: ['data-total-count', search],
+    queryFn: async () => {
+      const url = new URL(
+        '/data',
+        import.meta.env.VITE_API_URL || window.origin,
+      )
+      if (search) {
+        url.searchParams.set('search', search)
+      }
+      url.searchParams.set('range', JSON.stringify([0, 0]))
+      const res = await fetch(url)
+      return parseInt(res.headers.get('total-count') ?? '0')
+    },
+  })
 
   const { mutate: actionFetch } = useMutation({
     mutationFn: async (entries: MutationAction[]) => {
@@ -111,21 +103,16 @@ export const SearchPage = () => {
       }
       return res
     },
-    onError: (_, actions) => {
+    onError: () => {
       setSyncStatus('error')
-      const reversedActions = actions.reverse().map((action) => {
-        if (action.type === 'toggle') {
-          action.payload[1] = !action.payload[1]
-        }
-        return action
+      runActionWhenSynced(() => {
+        queryClient.invalidateQueries({
+          queryKey: ['data-page'],
+          refetchType: 'active',
+        })
       })
-      runActionWhenSynced(() => applyActionsLocally(reversedActions))
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        refetchType: 'none',
-        queryKey: ['data'],
-      })
       setSyncStatus('synced')
     },
   })
@@ -134,6 +121,7 @@ export const SearchPage = () => {
     refetchIntervalInBackground: true,
     queryKey: ['data-long-polling'],
     refetchInterval: 1,
+    retryDelay: 10000,
     queryFn: async (context) => {
       const url = new URL(
         '/is-data-changed-long-polling',
@@ -145,68 +133,51 @@ export const SearchPage = () => {
         actions: MutationAction[]
       }
       if (response.actions.length > 0) {
-        runActionWhenSynced(() => applyActionsLocally(response.actions))
-        context.client.invalidateQueries({
-          refetchType: 'none',
-          queryKey: ['data'],
+        runActionWhenSynced(() => {
+          queryClient.invalidateQueries({
+            queryKey: ['data-page'],
+            refetchType: 'active',
+          })
         })
       }
       return response
     },
   })
 
-  const chunks = useMemo(() => {
-    if (!data || data.pages.length === 0 || data.pages[0].length === 0) {
-      return null
-    }
+  const maxPageCount = useMemo(() => {
+    if (!totalCount) return 0
+    return Math.ceil(totalCount / pageSize)
+  }, [totalCount, pageSize])
 
-    let pages = data.pages
-
-    if (data.pages[data.pages.length - 1].length === 0) {
-      pages = pages.slice(0, -1)
-    }
-
-    return pages.map((page) => ({
-      stateRef: createRef<PersonCardChunkStateRefObject>(),
-      chunk: page,
+  const pages = useMemo(() => {
+    return Array.from({ length: pageCount }, (_, index) => ({
+      range: [index * pageSize, (index + 1) * pageSize] as [number, number],
+      stateRef: createRef<PersonCardPageStateRefObject>(),
     }))
-  }, [data])
+  }, [pageCount, pageSize])
 
-  const chunksRef = useRef(chunks)
-  chunksRef.current = chunks
+  const pagesRef = useRef(pages)
+  pagesRef.current = pages
 
   const runActionWhenSynced = useCallback((action: () => void) => {
-    if (syncStatusRef.current === 'synced') {
+    if (
+      syncStatusRef.current === 'synced' ||
+      syncStatusRef.current === 'error'
+    ) {
       action()
       return
     }
     actionsOnSyncedRef.current.push(action)
   }, [])
 
-  const fetchNextPageDebounced = useMemo(
-    () => debounce(fetchNextPage, 300, { leading: true }),
-    [fetchNextPage],
+  const addNewPageDebounced = useMemo(
+    () => debounce(() => setPageCount(pageCount + 1), 500, { leading: true }),
+    [pageCount],
   )
 
-  const swapPersonLocal = useCallback(
-    (aChunkIndex: number, aId: number, bChunkIndex: number, bId: number) => {
-      if (!chunksRef.current) return
-      if (aChunkIndex === bChunkIndex) {
-        chunksRef.current[aChunkIndex].stateRef.current?.swap(aId, bId)
-      } else {
-        const aPerson = chunksRef.current[
-          aChunkIndex
-        ].stateRef.current?.persons.find((item) => item.id === aId)
-        const bPerson = chunksRef.current[
-          bChunkIndex
-        ].stateRef.current?.persons.find((item) => item.id === bId)
-        if (!aPerson || !bPerson) return
-        chunksRef.current[aChunkIndex].stateRef.current?.replace(aId, bPerson)
-        chunksRef.current[bChunkIndex].stateRef.current?.replace(bId, aPerson)
-      }
-    },
-    [],
-  )
+  const swapPersonLocal = useMemo(() => swapPersonFactory(pagesRef), [])
+  const movePersonLocal = useMemo(() => movePersonFactory(pagesRef), [])
+  const togglePersonLocal = useMemo(() => togglePersonFactory(pagesRef), [])
 
   const actionAccumulativeFetch = useMemo(() => {
     let entries: MutationAction[] = []
@@ -229,81 +200,45 @@ export const SearchPage = () => {
     }
   }, [actionFetch])
 
-  const applyActionsLocally = useCallback(
-    (actions: MutationAction[]) => {
-      for (const action of actions) {
-        switch (action.type) {
-          case 'toggle': {
-            const [id, value] = action.payload
-
-            const chunk = chunksRef.current?.find((chunk) =>
-              chunk.stateRef.current?.persons.find(
-                (person) => person.id === id,
-              ),
-            )
-
-            if (chunk) {
-              chunk.stateRef.current?.toggle(id, value)
-            }
-
-            break
-          }
-          case 'swap': {
-            const [aId, bId] = action.payload
-
-            const aChunkIndex =
-              chunksRef.current?.findIndex((chunk) =>
-                chunk.stateRef.current?.persons.find(
-                  (person) => person.id === aId,
-                ),
-              ) ?? -1
-
-            const bChunkIndex =
-              chunksRef.current?.findIndex((chunk) =>
-                chunk.stateRef.current?.persons.find(
-                  (person) => person.id === bId,
-                ),
-              ) ?? -1
-
-            if (aChunkIndex !== -1 && bChunkIndex !== -1) {
-              swapPersonLocal(aChunkIndex, aId, bChunkIndex, bId)
-            }
-
-            break
-          }
-        }
-      }
-    },
-    [swapPersonLocal],
-  )
-
-  const togglePersonAccumulativeFetch = useCallback(
-    (id: number, value: boolean) => {
+  const togglePerson = useCallback(
+    (id: number) => {
+      togglePersonLocal(id)
       actionAccumulativeFetch({
-        payload: [id, value],
         type: 'toggle',
+        payload: id,
       })
     },
-    [actionAccumulativeFetch],
-  )
-
-  const swapPersonAccumulativeFetch = useCallback(
-    (aId: number, bId: number) => {
-      actionAccumulativeFetch({
-        payload: [aId, bId],
-        type: 'swap',
-      })
-    },
-    [actionAccumulativeFetch],
+    [actionAccumulativeFetch, togglePersonLocal],
   )
 
   const swapPerson = useCallback(
-    (aChunkIndex: number, aId: number, bChunkIndex: number, bId: number) => {
-      swapPersonAccumulativeFetch(aId, bId)
-      swapPersonLocal(aChunkIndex, aId, bChunkIndex, bId)
+    (aIndex: number, bIndex: number) => {
+      swapPersonLocal(aIndex, bIndex)
+      actionAccumulativeFetch({
+        payload: [aIndex, bIndex],
+        type: 'swap',
+      })
     },
-    [swapPersonAccumulativeFetch, swapPersonLocal],
+    [actionAccumulativeFetch, swapPersonLocal],
   )
+
+  const movePerson = useCallback(
+    (oldIndex: number, newIndex: number) => {
+      movePersonLocal(oldIndex, newIndex)
+      actionAccumulativeFetch({
+        payload: [oldIndex, newIndex],
+        type: 'move',
+      })
+    },
+    [actionAccumulativeFetch, movePersonLocal],
+  )
+
+  const dropActionFn = useMemo(() => {
+    if (dropAction === 'MOVE') {
+      return movePerson
+    }
+    return swapPerson
+  }, [dropAction, movePerson, swapPerson])
 
   useEffect(() => {
     if (searchInputRef.current) {
@@ -312,81 +247,101 @@ export const SearchPage = () => {
   }, [search])
 
   useEffect(() => {
-    if (syncStatus === 'synced') {
+    if (syncStatus === 'synced' || syncStatus === 'error') {
       actionsOnSyncedRef.current.forEach((action) => action())
       actionsOnSyncedRef.current = []
     }
   }, [syncStatus])
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 0)
-    }
-    window.addEventListener('scroll', handleScroll)
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
+    setPageCount(1)
+  }, [totalCount, pageSize])
 
   let content: ReactNode = null
 
-  if (isLoading) {
+  if (isLodingTotalCount) {
     content = <div className={styles['page-message']}>Loading...</div>
-  } else if (!chunks) {
+  } else if (totalCount === 0) {
     content = <div className={styles['page-message']}>No data</div>
-  } else if (error) {
+  } else if (errorTotalCount) {
     content = (
-      <div className={styles['page-message']}>Error: {error.message}</div>
+      <div className={styles['page-message']}>
+        Error: {errorTotalCount.message}
+      </div>
     )
   } else {
     content = (
       <>
         <ul className={styles['person-list']}>
           <Virtual.Root rootMargin="300px 0px 300px 0px">
-            {chunks.map((chunk, index) => (
-              <PersonCardChunk.Root
-                key={`${index}-${pageSize}`}
-                stateRef={chunk.stateRef}
-                chunk={chunk.chunk}
-                chunkIndex={index}
-                onToggle={togglePersonAccumulativeFetch}
-                onDrop={swapPerson}
+            {pages.map((page, index) => (
+              <Virtual.Item
+                key={`${index}-${pageSize}-${totalCount}`}
+                initialHeight={500}
+                as="li"
               >
-                <Virtual.Item initialHeight={500} as="li">
-                  {index > 0 && (
-                    <div className={styles['page-counter']}>
-                      <svg className={styles['page-counter-svg-pattern']}>
-                        <rect
-                          fill="url(#square-pattern)"
-                          height="100%"
-                          width="100%"
-                        />
-                      </svg>
-                      Page {index + 1}
-                    </div>
-                  )}
-                  <PersonCardChunk.List className={styles['person-chunk']} />
-                </Virtual.Item>
-              </PersonCardChunk.Root>
+                {(isVisible) => (
+                  <PersonCardPage.Root
+                    stateRef={page.stateRef}
+                    search={search ?? undefined}
+                    enabled={isVisible}
+                    range={page.range}
+                    onToggle={togglePerson}
+                    onDrop={dropActionFn}
+                  >
+                    {isVisible && (
+                      <PersonCardPage.Consumer>
+                        {({ isLoading, error }) => {
+                          if (isLoading) {
+                            return (
+                              <PatternBox
+                                className={styles['person-page-message']}
+                              >
+                                Loading page {index + 1}...
+                              </PatternBox>
+                            )
+                          }
+                          if (error) {
+                            return (
+                              <PatternBox
+                                className={styles['person-page-message']}
+                              >
+                                Error loading page {index + 1}: {error.message}
+                              </PatternBox>
+                            )
+                          }
+                          return (
+                            <>
+                              {index > 0 && (
+                                <PatternBox
+                                  className={styles['person-page-title']}
+                                >
+                                  Page {index + 1}
+                                </PatternBox>
+                              )}
+                              <PersonCardPage.List
+                                className={styles['person-page']}
+                              />
+                              {index === pageCount - 1 &&
+                                pageCount < maxPageCount && (
+                                  <IntersectionTrigger
+                                    key={pageCount}
+                                    rootMargin="0px 0px 1000px 0px"
+                                    mountDelay={200}
+                                    onIntersect={addNewPageDebounced}
+                                  />
+                                )}
+                            </>
+                          )
+                        }}
+                      </PersonCardPage.Consumer>
+                    )}
+                  </PersonCardPage.Root>
+                )}
+              </Virtual.Item>
             ))}
           </Virtual.Root>
         </ul>
-        {hasNextPage && (
-          <>
-            <IntersectionTrigger
-              key={data?.pages.length}
-              rootMargin="0px 0px 1000px 0px"
-              mountDelay={200}
-              onIntersect={fetchNextPageDebounced}
-            />
-            <div className={styles['next-page-loader']}>
-              <svg className={styles['next-page-loader-svg-pattern']}>
-                <rect fill="url(#square-pattern)" height="100%" width="100%" />
-              </svg>
-              Loading...
-            </div>
-          </>
-        )}
       </>
     )
   }
@@ -395,7 +350,7 @@ export const SearchPage = () => {
     <>
       <search
         className={cn(styles.search, {
-          [styles['search--scrolled']]: isScrolled,
+          [styles['search--scrolled']]: isWindowScrolled,
         })}
       >
         <svg className={styles['search-svg-pattern']}>
@@ -405,20 +360,36 @@ export const SearchPage = () => {
           <input
             ref={searchInputRef}
             className={styles['search-input']}
-            placeholder="Search"
+            placeholder="Search by ID"
             type="search"
             onChange={(e) => setSearchDebounced(e.target.value)}
           />
           <select
+            value={pageSize?.toString() ?? ''}
             id="search-page-size-select"
-            value={pageSize}
-            onChange={(e) => setPageSizeStr(e.target.value)}
+            onChange={(e) => {
+              const value = parseInt(e.target.value)
+              if (Number.isNaN(value)) {
+                setPageSize(null)
+              } else {
+                setPageSize(value)
+              }
+            }}
           >
             {pageSizeOptions.map((size) => (
               <option key={size} value={size}>
                 {size}
               </option>
             ))}
+          </select>
+          <select
+            value={dropAction}
+            onChange={(e) => {
+              setDropAction(e.target.value as 'SWAP' | 'MOVE')
+            }}
+          >
+            <option value="MOVE">MOVE</option>
+            <option value="SWAP">SWAP</option>
           </select>
           <div className={styles['sync-status']}>
             {translateSyncStatus(syncStatus)}

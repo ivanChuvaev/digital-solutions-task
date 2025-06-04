@@ -8,7 +8,8 @@
   ],
   "scripts": {
     "build": "yarn workspace frontend build",
-    "start": "yarn workspace backend start"
+    "start": "yarn workspace backend start",
+    "test": "yarn workspace frontend test && yarn workspace backend test"
   },
   "author": "Ivan Chuvaev",
   "license": "ISC"

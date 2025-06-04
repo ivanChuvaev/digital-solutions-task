@@ -3,6 +3,10 @@ import path from 'path'
 import { faker } from '@faker-js/faker'
 import 'dotenv/config'
 import cors from 'cors'
+import { swapPersonFactory } from './helpers/swapPersonFactory.js'
+import { movePersonFactory } from './helpers/movePersonFactory.js'
+import { togglePersonFactory } from './helpers/togglePersonFactory.js'
+import { LongPollingNotifier } from './LongPollingNotifier.js'
 
 if (!process.env.PORT) {
     throw new Error('PORT is not set')
@@ -12,72 +16,28 @@ if (!process.env.FAKE_DATA_SIZE) {
     throw new Error('FAKE_DATA_SIZE is not set')
 }
 
+if (!process.env.FAKER_SEED) {
+    throw new Error('FAKER_SEED is not set')
+}
+
 const app = express()
 const port = process.env.PORT
 
-app.use(cors())
+app.use(cors({
+    exposedHeaders: ['total-count']
+}))
 app.use(express.json())
 app.use(express.static(path.resolve('..', 'frontend', 'dist')))
 
 const data = Array.from({ length: process.env.FAKE_DATA_SIZE }, (_, i) => ({
-    id: i + 1,
     checked: false,
+    id: i + 1,
+    index: i,
 }))
 
-class LongPollingNotifier {
-    _subscribers
-
-    constructor() {
-        this._subscribers = new Map()
-        this.subscribe = this.subscribe.bind(this)
-        this.unsubscribe = this.unsubscribe.bind(this)
-        this.notify = this.notify.bind(this)
-    }
-
-    subscribe(id, handler) {
-        const subscriber = this._subscribers.get(id)
-
-        if (subscriber) {
-            clearTimeout(subscriber.timeoutId)
-            if (subscriber.actions.length > 0) {
-                handler(subscriber.actions)
-            }
-        }
-
-        this._subscribers.set(id, {
-            id,
-            handler,
-            timeoutId: null,
-            actions: [],
-        })
-    }
-
-    unsubscribe(id) {
-        const subscriber = this._subscribers.get(id)
-
-        if (!subscriber || !subscriber.handler) return
-
-        this._subscribers.set(id, {
-            ...subscriber,
-            handler: null,
-            timeoutId: setTimeout(() => {
-                this._subscribers.delete(id)
-            }, 5000),
-        })
-    }
-
-    notify(id, actions) {
-        for (const subscriber of this._subscribers.values()) {
-            if (subscriber.id === id) continue
-
-            if (subscriber.handler) {
-                subscriber.handler(actions)
-            } else {
-                subscriber.actions.push(...actions)
-            }
-        }
-    }
-}
+const swapPerson = swapPersonFactory(data)
+const movePerson = movePersonFactory(data)
+const togglePerson = togglePersonFactory(data)
 
 const longPollingNotifier = new LongPollingNotifier()
 
@@ -113,13 +73,28 @@ app.get('/data', (req, res) => {
         })
     }
 
+    const filteredCount = result.length
+
     if (range) {
         result = result.slice(range[0], range[1])
     } else {
         result = result.slice(0, 20)
     }
 
-    return res.json(result)
+    const resultWithExtra = result.map((item) => {
+        faker.seed(process.env.FAKER_SEED + item.id)
+        return {
+            ...item,
+            avatar: faker.image.avatar(),
+            first_name: faker.person.firstName(),
+            last_name: faker.person.lastName(),
+            email: faker.internet.email(),
+        }
+    })
+
+    res.setHeader('total-count', filteredCount)
+
+    return res.json(resultWithExtra)
 })
 
 /**
@@ -157,39 +132,41 @@ app.post('/action', (req, res) => {
                 .json({ error: `Invalid action item at index ${i}` })
         }
 
-        if (item.type !== 'swap' && item.type !== 'toggle') {
+        if (!['toggle', 'swap', 'move'].includes(item.type)) {
             return res
                 .status(400)
                 .json({ error: `Invalid action type at index ${i}` })
         }
 
         switch (item.type) {
+            case 'move':
             case 'swap': {
                 const isCorrectPayload =
                     Array.isArray(item.payload) &&
                     item.payload.length === 2 &&
+                    typeof item.payload[0] === 'number' &&
+                    typeof item.payload[1] === 'number' &&
                     !Number.isNaN(item.payload[0]) &&
                     !Number.isNaN(item.payload[1])
 
                 if (!isCorrectPayload) {
                     return res.status(400).json({
-                        error: `Invalid payload for swap action at index ${i}`,
+                        error: `Invalid payload for ${item.type} action at index ${i}`,
                     })
                 }
                 break
             }
             case 'toggle': {
                 const isCorrectPayload =
-                    Array.isArray(item.payload) &&
-                    item.payload.length === 2 &&
-                    !Number.isNaN(item.payload[0]) &&
-                    typeof item.payload[1] === 'boolean'
+                    typeof item.payload === 'number' &&
+                    !Number.isNaN(item.payload)
 
                 if (!isCorrectPayload) {
                     return res.status(400).json({
                         error: `Invalid payload for toggle action at index ${i}`,
                     })
                 }
+                break
             }
         }
     }
@@ -197,17 +174,17 @@ app.post('/action', (req, res) => {
     // apply actions
     for (const item of req.body) {
         switch (item.type) {
+            case 'move': {
+                movePerson(item.payload[0], item.payload[1])
+                break
+            }
             case 'swap': {
-                const [a, b] = item.payload
-                const aIndex = data.findIndex((item) => item.id === a)
-                const bIndex = data.findIndex((item) => item.id === b)
-                ;[data[aIndex], data[bIndex]] = [data[bIndex], data[aIndex]]
+                swapPerson(item.payload[0], item.payload[1])
                 break
             }
             case 'toggle': {
-                const [id, value] = item.payload
-                const index = data.findIndex((item) => item.id === id)
-                data[index].checked = value
+                togglePerson(item.payload)
+                break
             }
         }
     }

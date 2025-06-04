@@ -1,0 +1,26 @@
+.pattern-box {
+  position: relative;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(8px * 4 - 1px);
+  border: 1px solid color-mix(in srgb, black 10%, white);
+  border-radius: 4px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f8f8f8;
+}
+
+.pattern-box-svg-pattern {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.05;
+}
+
+.pattern-box-svg-pattern rect {
+  transform: translate(-1px, -1px);
+  width: calc(100% + 1px);
+  height: calc(100% + 1px);
+}

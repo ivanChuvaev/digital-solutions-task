@@ -32,6 +32,7 @@ app.use(express.static(path.resolve('..', 'frontend', 'dist')))
 const data = Array.from({ length: process.env.FAKE_DATA_SIZE }, (_, i) => ({
     checked: false,
     id: i + 1,
+    index: i,
 }))
 
 const swapPerson = swapPersonFactory(data)
@@ -63,7 +64,7 @@ app.get('/data', (req, res) => {
         }
     }
 
-    let result = data.map((item, i) => ({ ...item, index: i}))
+    let result = data
 
     if (search) {
         result = result.filter((item) => {

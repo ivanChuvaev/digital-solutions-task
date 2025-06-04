@@ -1,13 +1,19 @@
 export const swapPersonFactory = (data) => {
     return (aIndex, bIndex) => {
-        if (
-            aIndex < 0 ||
-            bIndex < 0 ||
-            aIndex >= data.length ||
-            bIndex >= data.length
-        ) {
-            throw new Error('Index out of bounds')
+        const aIndexLocal = data.findIndex((item) => item.index === aIndex)
+        const bIndexLocal = data.findIndex((item) => item.index === bIndex)
+
+        if (aIndexLocal === -1 || bIndexLocal === -1) {
+            throw new Error('Old or new local indices not found')
         }
-        ;[data[aIndex], data[bIndex]] = [data[bIndex], data[aIndex]]
+
+        ;[data[aIndexLocal].index, data[bIndexLocal].index] = [
+            data[bIndexLocal].index,
+            data[aIndexLocal].index,
+        ]
+        ;[data[aIndexLocal], data[bIndexLocal]] = [
+            data[bIndexLocal],
+            data[aIndexLocal],
+        ]
     }
 }

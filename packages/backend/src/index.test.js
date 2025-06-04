@@ -102,12 +102,15 @@ describe('Backend API Tests', () => {
         })
 
         it('should successfully swap two items', async () => {
-            const [firstItem, secondItem] = data
+            const initialData = [...data]
+            const [firstItem, secondItem] = initialData
 
             const response = await request(app)
                 .post('/action')
                 .query({ id: 'random-id' })
-                .send([{ type: 'swap', payload: [0, 1] }])
+                .send([
+                    { type: 'swap', payload: [firstItem.index, secondItem.index] },
+                ])
 
             expect(response.status).toBe(200)
             expect(data[0]).toEqual(secondItem)
@@ -115,24 +118,28 @@ describe('Backend API Tests', () => {
         })
 
         it('should successfully toggle an item', async () => {
+            const initialData = [...data]
+            const firstItem = initialData[0]
+
             const response = await request(app)
                 .post('/action')
                 .query({ id: 'random-id' })
-                .send([{ type: 'toggle', payload: 0 }])
+                .send([{ type: 'toggle', payload: firstItem.index }])
 
             expect(response.status).toBe(200)
             expect(data[0].checked).toBe(true)
         })
 
         it('should handle multiple actions in sequence', async () => {
-            const [firstItem, secondItem] = data
+            const initialData = [...data]
+            const [firstItem, secondItem] = initialData
 
             const response = await request(app)
                 .post('/action')
                 .query({ id: 'random-id' })
                 .send([
-                    { type: 'swap', payload: [0, 1] },
-                    { type: 'toggle', payload: 0 },
+                    { type: 'swap', payload: [firstItem.index, secondItem.index] },
+                    { type: 'toggle', payload: firstItem.index },
                 ])
 
             expect(response.status).toBe(200)
